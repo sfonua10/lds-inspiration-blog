@@ -10,6 +10,7 @@ const nextConfig = {
         pathname: '/uploads/**',
       },
     ],
+    domains: ['images.ctfassets.net'],
   },
 };
 

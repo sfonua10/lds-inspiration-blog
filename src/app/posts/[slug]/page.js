@@ -1,29 +1,45 @@
-import axios from 'axios';
+import { draftMode } from 'next/headers';
+import { getContentfulClient } from '@/lib/contentful';
+import { documentToReactComponents } from '@contentful/rich-text-react-renderer';
 
-async function getPostBySlug(slug) {
-  const res = await axios.get(
-    `${process.env.STRAPI_API_URL}/api/posts?filters[slug][$eq]=${slug}`
-  );
-  // Adjust based on how your Strapi returns data
-  return res.data.data?.[0];
+async function getPost(slug, isPreview) {
+  const client = getContentfulClient(isPreview);
+
+  const response = await client.getEntries({
+    content_type: 'post',
+    'fields.slug': slug,
+    limit: 1,
+  });
+
+  return response.items[0];
 }
 
 export default async function PostPage({ params }) {
-  const { slug } = params;
-  const postData = await getPostBySlug(slug);
+  // Must await draftMode()
+  const dm = await draftMode();
+  const isPreview = dm.isEnabled;
 
-  if (!postData) {
-    return <div>Post not found</div>;
+  const post = await getPost(params.slug, isPreview);
+
+  if (!post) {
+    return <div className="p-4">Post not found.</div>;
   }
 
-  const { title, content } = postData;
+  const { title, content } = post.fields;
 
   return (
-    <article className="p-4 bg-white rounded shadow">
+    <article className="mx-auto p-4 max-w-3xl bg-white rounded shadow">
       <h1 className="text-3xl font-bold mb-4">{title}</h1>
-      <p className="mb-2">
-        {content}
-      </p>
+
+      {/* If Rich Text */}
+      {content?.nodeType ? (
+        <div className="leading-7">
+          {documentToReactComponents(content)}
+        </div>
+      ) : (
+        // Otherwise, if it's plain text
+        <p className="leading-7">{content}</p>
+      )}
     </article>
   );
 }
